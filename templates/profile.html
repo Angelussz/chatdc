@@ -1,0 +1,37 @@
+{% extends "layout.html" %}
+
+{% block title %}
+My Profile
+{% endblock %}
+
+{% block main %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h3 class="mb-0">Edit Profile</h3>
+                </div>
+                <div class="card-body text-center">
+
+                    <div class="mb-4">
+                        <img src="{{ g.user['profile_image'] }}" alt="Profile Picture"
+                            class="rounded-circle img-thumbnail"
+                            style="width: 150px; height: 150px; object-fit: cover;">
+                    </div>
+
+                    <h4 class="mb-3">{{ g.user['username'] }}</h4>
+
+                    <form method="post" enctype="multipart/form-data">
+                        <div class="mb-3">
+                            <label for="file" class="form-label">Change Avatar</label>
+                            <input class="form-control" type="file" id="file" name="file" accept="image/*" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100">Upload New Image</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

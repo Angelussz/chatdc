@@ -1,0 +1,6 @@
+Flask
+psycopg[binary]
+psycopg-pool
+python-dotenv
+flask-socketio
+cloudinary

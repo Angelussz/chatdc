@@ -1,0 +1,146 @@
+{% extends "layout.html" %}
+
+{% block title %}
+    Home
+{% endblock %}
+
+{% block main %}
+    {% if g.user %}
+        <div class="card shadow">
+            <div class="card-header bg-primary text-white">
+                Chat Room - Logged in as {{ g.user['username'] }}
+            </div>
+            <div class="card-body" id="chat-box" 
+                 data-user-id="{{ session['user_id'] }}" 
+                 data-user-role="{{ session['role'] }}"
+                 style="height: 400px; overflow-y: auto; text-align: left;">
+                {% for message in messages %}
+                    <div id="message-{{ message['id'] }}" class="d-flex align-items-center mb-2">
+                        <img src="{{ message['profile_image'] }}" class="rounded-circle me-2" style="width: 35px; height: 35px; object-fit: cover;">
+                        <div class="msg-display">
+                            <strong>{{ message['username'] }}:</strong> <span class="msg-content">{{ message['content'] }}</span>
+                            <small class="text-muted ms-2" style="font-size: 0.8em;">{{ message['created_at'] | human_date }}</small>
+                        </div>
+                        {% if session['user_id'] == message['user_id'] %}
+                             <input type="text" id="input-edit-{{ message['id'] }}" class="form-control form-control-sm w-auto d-none">
+                             <button class="btn btn-sm btn-outline-secondary border-0 btn-info btn-edit ms-2" data-id="{{ message['id'] }}">✏️</button>
+                        {% endif %}
+                        {% if session['role'] == 'admin' or session['user_id'] == message['user_id'] %}
+                             <button class="btn btn-sm btn-danger delete-btn ms-2" data-id="{{ message['id'] }}">
+                                🗑️
+                            </button>
+                        {% endif %}
+                    </div>
+                
+                {% else %}
+                    <p class="text-muted text-center">No messages yet. Be the first to say hello!</p>
+                {% endfor %}
+            </div>
+            <div class="card-footer">
+                <form id="chat-form" class="d-flex gap-2">
+                    <input type="text" id="message-input" class="form-control" placeholder="Type a message..." required autocomplete="off" autofocus>
+                    <button type="submit" class="btn btn-primary">Send</button>
+                </form>
+            </div>
+        </div>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+        <script type="text/javascript">
+            let socket = io();
+            let chatBox = document.getElementById('chat-box');
+            const currentUserId = parseInt(chatBox.getAttribute('data-user-id'));
+            const currentUserRole = chatBox.getAttribute('data-user-role');
+            function scrollToBottom() {
+                chatBox.scrollTop = chatBox.scrollHeight;
+            }
+            scrollToBottom();
+            socket.on('message', function(data) {
+                let msgDiv = document.createElement('div');
+                msgDiv.id = 'message-' + data.id;
+                msgDiv.className = 'd-flex align-items-center mb-2';
+                
+                let deleteBtn = '';
+                let editInput = '';
+                let editBtn = '';
+                if ('admin' == currentUserRole || data.user_id === currentUserId) {
+                    deleteBtn = `<button class="btn btn-sm btn-danger delete-btn ms-2" data-id="${data.id}">🗑️</button>`;
+                }
+                if (data.user_id === currentUserId) {
+                    editInput = `<input type="text" id="input-edit-${data.id}" class="form-control form-control-sm w-auto d-none">`;
+                    editBtn = `<button class="btn btn-sm btn-outline-secondary border-0 btn-info btn-edit ms-2" data-id="${data.id}">✏️</button>`;
+                }
+                msgDiv.innerHTML = `<img src="${data.profile_image}" class="rounded-circle me-2" style="width: 35px; height: 35px; object-fit: cover;">
+                                   <div class="msg-display">
+                                       <strong>${data.username}:</strong> <span class="msg-content">${data.content}</span> 
+                                       <small class="text-muted ms-2" style="font-size: 0.8em;">${data.timestamp}</small>
+                                   </div>
+                                   ${editInput}
+                                   ${editBtn}
+                                   ${deleteBtn}
+                                   `;
+                
+                chatBox.appendChild(msgDiv);
+                scrollToBottom();
+            });
+            socket.on('message_deleted', function(data) {
+                let element = document.getElementById('message-' + data.id);
+                if (element) element.remove();
+            });
+
+            socket.on('message_edited', function(data) {
+                let msgContainer = document.getElementById('message-' + data.id);
+                if (msgContainer) {
+                    msgContainer.querySelector('.msg-content').textContent = data.content;
+                    let input = document.getElementById('input-edit-' + data.id);
+                    if (input) input.classList.add('d-none');
+                    msgContainer.querySelector('.msg-display').classList.remove('d-none');
+                    
+                    let editBtn = msgContainer.querySelector('.btn-edit');
+                    if (editBtn) editBtn.classList.remove('d-none');
+                }
+            });
+            document.getElementById('chat-box').addEventListener('click', function(e) {
+                const btn = e.target.closest('.delete-btn');
+                const btn_edit = e.target.closest('.btn-edit');
+                console.log(btn_edit);
+                if (btn) {
+                    let id = btn.getAttribute('data-id');
+                    socket.emit('delete_message', { message_id: id });
+                }
+                if (btn_edit) {
+                    let id = btn_edit.getAttribute('data-id');
+                    let input = document.getElementById('input-edit-' + id);
+                    let msgContainer = document.getElementById('message-' + id);
+                    input.value = msgContainer.querySelector('.msg-content').textContent;
+                    input.classList.remove('d-none');
+                    btn_edit.classList.add('d-none');
+                    msgContainer.querySelector('.msg-display').classList.add('d-none');
+                    input.focus();
+                }
+            });
+            document.getElementById('chat-box').addEventListener('keydown', function(e) {
+                if (e.target.classList.contains('form-control') && e.target.id.startsWith('input-edit-')) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        
+                        let id = e.target.id.split('-')[2];
+                        let newContent = e.target.value;
+                        
+                        socket.emit('update_message', { message_id: id, new_content: newContent });
+                    }
+                }
+            });
+
+            document.getElementById('chat-form').addEventListener('submit', function(e) {
+                e.preventDefault();
+                let input = document.getElementById('message-input');
+                socket.emit('message', {content: input.value});
+                input.value = '';
+                input.focus();
+            });
+        </script>
+    {% else %}
+        <h1>Welcome to CHATDC!</h1>
+        <p class="lead">This is the home page of your chat application.</p>
+        <p>To get started, please <a href="{{ url_for('login') }}">log in</a> or <a href="{{ url_for('register') }}">register</a>.</p>
+    {% endif %}
+{% endblock %}
