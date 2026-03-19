@@ -6,41 +6,54 @@
 
 {% block main %}
     {% if g.user %}
-        <div class="card shadow">
-            <div class="card-header bg-primary text-white">
-                Chat Room - Logged in as {{ g.user['username'] }}
-            </div>
-            <div class="card-body" id="chat-box" 
-                 data-user-id="{{ session['user_id'] }}" 
-                 data-user-role="{{ session['role'] }}"
-                 style="height: 400px; overflow-y: auto; text-align: left;">
-                {% for message in messages %}
-                    <div id="message-{{ message['id'] }}" class="d-flex align-items-center mb-2">
-                        <img src="{{ message['profile_image'] }}" class="rounded-circle me-2" style="width: 35px; height: 35px; object-fit: cover;">
-                        <div class="msg-display">
-                            <strong>{{ message['username'] }}:</strong> <span class="msg-content">{{ message['content'] }}</span>
-                            <small class="text-muted ms-2" style="font-size: 0.8em;">{{ message['created_at'] | human_date }}</small>
-                        </div>
-                        {% if session['user_id'] == message['user_id'] %}
-                             <input type="text" id="input-edit-{{ message['id'] }}" class="form-control form-control-sm w-auto d-none">
-                             <button class="btn btn-sm btn-outline-secondary border-0 btn-info btn-edit ms-2" data-id="{{ message['id'] }}">✏️</button>
-                        {% endif %}
-                        {% if session['role'] == 'admin' or session['user_id'] == message['user_id'] %}
-                             <button class="btn btn-sm btn-danger delete-btn ms-2" data-id="{{ message['id'] }}">
-                                🗑️
-                            </button>
-                        {% endif %}
+        <div class="row">
+            <div class="col-md-9 mb-3">
+                <div class="card shadow">
+                    <div class="card-header bg-primary text-white">
+                        Chat Room - Logged in as {{ g.user['username'] }}
                     </div>
-                
-                {% else %}
-                    <p class="text-muted text-center">No messages yet. Be the first to say hello!</p>
-                {% endfor %}
+                    <div class="card-body" id="chat-box" 
+                         data-user-id="{{ session['user_id'] }}" 
+                         data-user-role="{{ session['role'] }}"
+                         style="height: 400px; overflow-y: auto; text-align: left;">
+                        {% for message in messages %}
+                            <div id="message-{{ message['id'] }}" class="d-flex align-items-center mb-2">
+                                <img src="{{ message['profile_image'] }}" class="rounded-circle me-2" style="width: 35px; height: 35px; object-fit: cover;">
+                                <div class="msg-display">
+                                    <strong>{{ message['username'] }}:</strong> <span class="msg-content">{{ message['content'] }}</span>
+                                    <small class="text-muted ms-2" style="font-size: 0.8em;">{{ message['created_at'] | human_date }}</small>
+                                </div>
+                                {% if session['user_id'] == message['user_id'] %}
+                                     <input type="text" id="input-edit-{{ message['id'] }}" class="form-control form-control-sm w-auto d-none">
+                                     <button class="btn btn-sm btn-outline-secondary border-0 btn-info btn-edit ms-2" data-id="{{ message['id'] }}">✏️</button>
+                                {% endif %}
+                                {% if session['role'] == 'admin' or session['user_id'] == message['user_id'] %}
+                                     <button class="btn btn-sm btn-danger delete-btn ms-2" data-id="{{ message['id'] }}">
+                                        🗑️
+                                    </button>
+                                {% endif %}
+                            </div>
+                        
+                        {% else %}
+                            <p class="text-muted text-center">No messages yet. Be the first to say hello!</p>
+                        {% endfor %}
+                    </div>
+                    <div class="card-footer">
+                        <form id="chat-form" class="d-flex gap-2">
+                            <input type="text" id="message-input" class="form-control" placeholder="Type a message..." required autocomplete="off" autofocus>
+                            <button type="submit" class="btn btn-primary">Send</button>
+                        </form>
+                    </div>
+                </div>
             </div>
-            <div class="card-footer">
-                <form id="chat-form" class="d-flex gap-2">
-                    <input type="text" id="message-input" class="form-control" placeholder="Type a message..." required autocomplete="off" autofocus>
-                    <button type="submit" class="btn btn-primary">Send</button>
-                </form>
+            <div class="col-md-3">
+                <div class="card shadow">
+                    <div class="card-header bg-success text-white">
+                        Online Users
+                    </div>
+                    <div class="card-body p-2" id="users-box" style="height: 465px; overflow-y: auto; text-align: left;">
+                    </div>
+                </div>
             </div>
         </div>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
@@ -97,6 +110,24 @@
                     let editBtn = msgContainer.querySelector('.btn-edit');
                     if (editBtn) editBtn.classList.remove('d-none');
                 }
+            });
+            socket.on('update_users', function(users) {
+                let usersBox = document.getElementById('users-box');
+                usersBox.innerHTML = '';
+                users.forEach(function(user) {
+                    let userDiv = document.createElement('div');
+                    
+                    if (user.id === currentUserId) {
+                        userDiv.className = 'd-flex align-items-center mb-2 p-2 rounded bg-success text-white shadow-sm';
+                        userDiv.innerHTML = `<img src="${user.profile_image}" class="rounded-circle me-2 border border-white" style="width: 35px; height: 35px; object-fit: cover;">
+                                             <span class="text-truncate fw-bold">${user.username} (You)</span>`;
+                    } else {
+                        userDiv.className = 'd-flex align-items-center mb-2 p-2 border-bottom';
+                        userDiv.innerHTML = `<img src="${user.profile_image}" class="rounded-circle me-2" style="width: 35px; height: 35px; object-fit: cover;">
+                                             <span class="text-truncate fw-bold">${user.username}</span>`;
+                    }
+                    usersBox.appendChild(userDiv);
+                });
             });
             document.getElementById('chat-box').addEventListener('click', function(e) {
                 const btn = e.target.closest('.delete-btn');

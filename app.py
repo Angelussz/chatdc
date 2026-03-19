@@ -223,15 +223,40 @@ def change_password():
 
     return render_template('change_password.html')
 
+user_connections = {}
+connected_users_info = {}
+user_sids = {}
+
 @socketio.on('connect')
 def handle_connect():
     user_id = session.get('user_id')
-    print(f'Client connected: {user_id}')
+    if user_id:
+        user_connections[user_id] = user_connections.get(user_id, 0) + 1
+        if user_id not in connected_users_info:
+            conn = get_db()
+            with conn.cursor() as cur:
+                cur.execute("SELECT username, profile_image FROM users WHERE id = %s", (user_id,))
+                user_data = cur.fetchone()
+                if user_data:
+                    connected_users_info[user_id] = {
+                        'id': user_id,
+                        'username': user_data['username'],
+                        'profile_image': user_data['profile_image']
+                    }
+        user_sids[request.sid] = user_id
+        emit('update_users', list(connected_users_info.values()), broadcast=True)
 
 @socketio.on('disconnect')
 def handle_disconnect():
-    user_id = session.get('user_id')
-    print(f'Client disconnected: {user_id}')
+    if request.sid in user_sids:
+        uid = user_sids.pop(request.sid)
+        if uid in user_connections:
+            user_connections[uid] -= 1
+            if user_connections[uid] <= 0:
+                del user_connections[uid]
+                if uid in connected_users_info:
+                    del connected_users_info[uid]
+        emit('update_users', list(connected_users_info.values()), broadcast=True)
 
 @socketio.on('message')
 def handle_message(data):
