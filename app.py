@@ -1,4 +1,5 @@
 import os
+import re
 from flask import Flask, render_template, g, request, session, redirect, url_for, flash
 from flask_socketio import SocketIO, emit
 from psycopg_pool import ConnectionPool
@@ -21,6 +22,8 @@ cloudinary.config(
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
 socketio = SocketIO(app)
+
+PASSWORD_REGEX = r"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$"
 
 def format_date(dt):
     if not dt:
@@ -103,6 +106,8 @@ def register():
             error = 'Required user.'
         elif not password:
             error = 'Required password.'
+        elif not re.match(PASSWORD_REGEX, password):
+            error = 'Password must be at least 8 characters long, contain at least one uppercase letter, one lowercase letter, and one number.'
 
         if error is None:
             try:
@@ -202,6 +207,8 @@ def change_password():
             error = 'All fields are required.'
         elif new_password != confirm_password:
             error = 'New passwords do not match.'
+        elif not re.match(PASSWORD_REGEX, new_password):
+            error = 'New password must be at least 8 characters long, contain at least one uppercase letter, one lowercase letter, and one number.'
         
         if error is None:
             conn = get_db()
