@@ -1,5 +1,5 @@
 # CHATDC
-#### Video Demo:  <URL HERE>
+#### Video Demo:  <https://youtu.be/NOkDmQhuXKo>
 #### Description:
 **CHATDC** is a robust group messaging web application built for real-time interaction. It combines modern web technologies to provide a seamless communication experience, focusing on security, moderation, and user personalization.
 
